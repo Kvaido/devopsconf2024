@@ -1,15 +1,25 @@
+{{- if .Values.main.service.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "chart.fullname" . }}
+  {{- if .Values.main.service.nameOverride }}
+  name: {{ .Values.main.service.nameOverride | quote }}
+  {{- else }}
+  name: {{ include "ns-go.fullname" . | quote }}
+  {{- end }}
   labels:
-    {{- include "chart.labels" . | nindent 4 }}
+    {{- include "ns-go.labels" . | nindent 4 }}
+  annotations:
+    {{- include "ns-go.main.annotations" . | nindent 4 }}
 spec:
-  type: {{ .Values.service.type }}
-  ports:
-    - port: {{ .Values.service.port }}
-      targetPort: http
-      protocol: TCP
-      name: http
+  type: {{ .Values.main.service.type | quote }}
   selector:
-    {{- include "chart.selectorLabels" . | nindent 4 }}
+    {{- include "ns-go.main.selectorLabels" . | nindent 4 }}
+  ports:
+    {{- range .Values.main.service.ports }}
+    - name: {{ .name }}
+      port: {{ .ports.external }}
+      targetPort: {{ .ports.internal }}
+      protocol: {{ .protocol }}
+    {{- end }}
+{{- end }}

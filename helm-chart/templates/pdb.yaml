@@ -1,0 +1,31 @@
+{{- range $name, $v := .Values.instances }}
+{{- if $v.enabled }}
+{{- $config := mergeOverwrite (deepCopy $.Values.common) (deepCopy $v) }}
+{{- if $config.podDisruptionBudget }}
+---
+{{- if semverCompare ">=1.21-0" $.Capabilities.KubeVersion.GitVersion }}
+apiVersion: policy/v1
+{{- else -}}
+apiVersion: policy/v1beta1
+{{- end }}
+kind: PodDisruptionBudget
+metadata:
+  name: "{{ include "ns-go.fullname" $ }}-{{ $name }}"
+  labels:
+    {{- include "ns-go.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  {{- with $config.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+  {{- with $config.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ns-go.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $name }}
+...
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,42 +1,62 @@
-{{- if .Values.ingress.enabled -}}
-{{- $fullName := include "chart.fullname" . -}}
-{{- $svcPort := .Values.service.port -}}
-{{- if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- if .Values.main.ingress.enabled -}}
+{{- $name := (default (include "ns-go.fullname" . ) .Values.main.service.nameOverride) -}}
+{{- if and .Values.main.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.main.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.main.ingress.annotations "kubernetes.io/ingress.class" .Values.main.ingress.className}}
+  {{- end }}
+{{- end }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
 {{- else -}}
 apiVersion: extensions/v1beta1
 {{- end }}
 kind: Ingress
 metadata:
-  name: {{ $fullName }}
+  name: {{ $name | quote }}
   labels:
-    {{- include "chart.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+    {{- include "ns-go.labels" . | nindent 4 }}
+    {{- include "quote.object" .Values.main.ingress.labels | indent 4}}
   annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- include "ns-go.annotations" . | indent 4 }}
+    {{- include "quote.object" .Values.main.ingress.annotations | indent 4}}
 spec:
-  {{- if .Values.ingress.tls }}
+  {{- if and .Values.main.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.main.ingress.className }}
+  {{- end }}
+  {{- if .Values.main.ingress.tls }}
   tls:
-    {{- range .Values.ingress.tls }}
-    - hosts:
-        {{- range .hosts }}
-        - {{ . | quote }}
-        {{- end }}
-      secretName: {{ .secretName }}
+    {{- range .Values.main.ingress.tls }}
+    - hosts: {{- include "quote.list" .hosts | indent 6 }}
+      secretName: {{ .secretName | default (include "sanitize" (cat $name "-ssl")) | quote }}
     {{- end }}
   {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
+    {{- range .Values.main.ingress.rules }}
     - host: {{ .host | quote }}
       http:
         paths:
           {{- range .paths }}
           - path: {{ .path }}
+            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
             pathType: {{ .pathType }}
+            {{- end }}
             backend:
-              serviceName: {{ .serviceName }}
-              servicePort: {{ .servicePort }}
-          {{- end }}
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ $name | quote }}
+                port:
+                  {{- with .port }}
+                  number: {{ . }}
+                  {{- end }}
+                  {{- with .name }}
+                  name: {{ . }}
+                  {{- end }}
+              {{- else }}
+                serviceName: {{ $name | quote }}
+                servicePort: {{ .port }}
+              {{- end }}
     {{- end }}
   {{- end }}
+{{- end }}

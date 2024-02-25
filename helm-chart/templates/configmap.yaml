@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ns-go.fullname" . | quote }}
+  labels:
+    {{- include "ns-go.main.labels" . | nindent 4 }}
+  annotations:
+    {{- include "ns-go.main.annotations" . | nindent 4 }}
+data:
+  STAGE: {{ .Values.appConfig.stage | quote }}
+  POSTGRES_HOSTNAME: {{ .Values.appConfig.postgres.hostname | quote }}
+  POSTGRES_PORT: {{ .Values.appConfig.postgres.port | quote }}
+  POSTGRES_DB: {{ .Values.appConfig.postgres.database | quote }}
+  REDIS_HOSTNAME: {{ .Values.appConfig.redis.hostname | quote }}
+  REDIS_PORT: {{ .Values.appConfig.redis.port | quote }}
+  REDIS_DB: {{ .Values.appConfig.redis.dbNumber | quote }}
+  {{- with .Values.globalExtraEnvVarsCM }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+  {{- with .Values.main.extraEnvVarsCM }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
