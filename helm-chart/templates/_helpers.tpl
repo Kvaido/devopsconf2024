@@ -68,10 +68,10 @@ Create the name of the service account to use.
 {{- end -}}
 {{- end -}}
 
-{{/*Main annotations*/}}
-{{- define "ns-go.main.annotations" -}}
+{{/* Common annotations */}}
+{{- define "ns-go.common.annotations" -}}
 {{ include "ns-go.annotations" . }}
-{{- with .Values.main.annotations }}
+{{- with .Values.common.annotations }}
 {{- include "quote.object" . -}}
 {{- end -}}
 {{- end }}
@@ -92,7 +92,6 @@ Create the name of the service account to use.
 {{- end }}
 {{- end }}
 
-
 {{/*
 Annotations of checksums for configs and secrets of all pods.
 */}}
@@ -100,31 +99,5 @@ Annotations of checksums for configs and secrets of all pods.
 checksum/config: {{ include (print $.Template.BasePath "/main-cm.yaml") . | sha256sum }}
 checksum/secret: {{ include (print $.Template.BasePath "/main-secret.yaml") . | sha256sum }}
 checksum/config-logging: {{ include (print $.Template.BasePath "/main-cm-logging.yaml") . | sha256sum }}
-checksum/secret-logging: {{ include (print $.Template.BasePath "/main-secret-logging.yaml") . | sha256sum }}
-{{- end }}
-
-{{/*
-podAntiAffinity soft template
-*/}}
-{{- define "ns-go.main.podAntiAffinity.soft" -}}
-podAntiAffinity:
-  preferredDuringSchedulingIgnoredDuringExecution:
-    - podAffinityTerm:
-        topologyKey: kubernetes.io/hostname
-        labelSelector:
-          matchLabels:
-            {{- include "ns-go.main.selectorLabels" . | nindent 12 }}
-      weight: 100
-{{- end }}
-
-{{/*
-podAntiAffinity hard template
-*/}}
-{{- define "ns-go.main.podAntiAffinity.hard" -}}
-podAntiAffinity:
-  requiredDuringSchedulingIgnoredDuringExecution:
-    - topologyKey: kubernetes.io/hostname
-      labelSelector:
-        matchLabels:
-          {{- include "ns-go.main.selectorLabels" . | nindent 10 }}
+checksum/secret-logging: {{ include (print $.Template.BasePath "/common-secret-logging.yaml") . | sha256sum }}
 {{- end }}

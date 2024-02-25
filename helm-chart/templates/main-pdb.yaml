@@ -1,4 +1,7 @@
-{{- if .Values.main.podDisruptionBudget.enabled }}
+{{- range $name, $v := .Values.instances }}
+{{- if $v.enabled }}
+{{- $config := mergeOverwrite (deepCopy $.Values.common) (deepCopy $v) }}
+{{- if $config.podDisruptionBudget }}
 ---
 {{- if semverCompare ">=1.21-0" $.Capabilities.KubeVersion.GitVersion }}
 apiVersion: policy/v1
@@ -7,18 +10,22 @@ apiVersion: policy/v1beta1
 {{- end }}
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "ns-go.fullname" . | quote }}
+  name: "{{ include "ns-go.fullname" $ }}-{{ $name }}"
   labels:
-    {{- include "ns-go.labels" . | nindent 4 }}
+    {{- include "ns-go.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
 spec:
-  {{- with .Values.main.podDisruptionBudget.minAvailable }}
+  {{- with $config.podDisruptionBudget.minAvailable }}
   minAvailable: {{ . }}
   {{- end }}
-  {{- with .Values.main.podDisruptionBudget.maxUnavailable }}
+  {{- with $config.podDisruptionBudget.maxUnavailable }}
   maxUnavailable: {{ . }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "ns-go.main.selectorLabels" . | nindent 6 }}
+      {{- include "ns-go.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $name }}
 ...
+{{- end }}
+{{- end }}
 {{- end }}

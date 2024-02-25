@@ -37,7 +37,13 @@ logging:
       limits:
         cpu: 50m
         memory: 50Mi
+    probes:
+      enabled: false
+      readiness: {}
+      liveness: {}
+      startup: {}
     tag: default
+    application: null
     overrideConfig: |
       [sources.syslog]
       type = "syslog"
@@ -51,92 +57,89 @@ logging:
       compression = "zstd"
       encoding.codec = "json"
 
-# Configuration of application
-appConfig:
-  # Stage name for identification, e.g. "dev" or "test".
-  stage: '<org_name>-<env_name>'
-
-  # Parameters for library
-  log:
-    dir: '/var/log/ns-go'
-    fileName: 'ns-go.log'
-    level: 'INFO'
-    format: 'JSON,CONSOLE'
-    filesCount: '10'
-    fileSize: '100'
-
-  # Insert additional configuration below and link it with configMaps, Secrets, etc as you need.
-  # There is keycloak configuration for example
-  keycloak:
-    url: 'https://example-keycloak-service.domain/auth/'
-    realm: 'example-realm'
-    clientId: 'example-client-id'
-    clientSecretKey: 'example-client-secret-key'
-
-  postgres:
-    hostname: 'postgres.example.local'
-    port: 5432
-    username: 'somePostgresUsername'
-    password: 'somePostgresPassword'
-    database: 'some-database-for-develop'
-
-  redis:
-    hostname: 'redis.example.local'
-    port: 6379
-    username: 'someRedisUsername'
-    password: 'someRedisPassword'
-    dbNumber: 5
-
-  # Extra files that can be mounted in containers
-  extraFiles: []
-  # - path: '/opt/a/'
-  #   files:
-  #     - name: 'test1'
-  #       content: |-
-  #         example content 1
-  #     - name: 'test2'
-  #       content: |-
-  #         example content 2
-  # - path: '/opt/b'
-  #   readOnly: true
-  #   files:
-  #     - name: 'test3'
-  #       content: |-
-  #         example content 3
-
-# Main configuration. This is a necessary component, it must be present.
-main:
-  # Application name for identification
-  appName: 'ns-go'
-  # Command that runs the application. Example: '[ "./docker-entrypoint.sh", "ns-go" ]'
-  appCommand: ''
-  # Lifecycle hooks for the container. Example:
-  # lifecycleHooks: |
-  #   postStart:
-  #     exec:
-  #       command: [ "/bin/sh", "-c", "echo Hello from the postStart handler > /usr/share/message" ]
-  #   preStop:
-  #     exec:
-  #       command: [ "/bin/sh", "-c", "echo Stopping container > /dev/stdout" ]
-  lifecycleHooks: ''
-
-  # The minimum number of replicas
-  replicas: 3
+common:
   # Strategy
   strategy: {}
   # POD Security Context
   podSecurityContext: {}
 
-  # The resources allocated for each replica, both requests and limits
+  appConfig:
+    # The minimum number of replicas.
+    replicas: 4
+    # Application name for identification
+    appName: 'ns-go'
+    # Command that runs the application. Example: ['./docker-entrypoint.sh', 'day2-core']
+    # appCommand: ['./docker-entrypoint.sh', 'ns-go']
+    # Lifecycle hooks for the container. Example:
+    # lifecycleHooks: |
+    #   postStart:
+    #     exec:
+    #       command: [ "/bin/sh", "-c", "echo Hello from the postStart handler > /usr/share/message" ]
+    #   preStop:
+    #     exec:
+    #       command: [ "/bin/sh", "-c", "echo Stopping container > /dev/stdout" ]
+    lifecycleHooks: ''
+    # Stage name for identification, e.g. "dev" or "test".
+    stage: '<org_name>-<env_name>'
+
+    # Parameters for library
+    log:
+      dir: '/var/log/ns-go'
+      fileName: 'ns-go.log'
+      level: 'INFO'
+      format: 'JSON,CONSOLE'
+      filesCount: '10'
+      fileSize: '100'
+
+    # Insert an additional configuration below and link it with configMaps, Secrets, etc as you need.
+    # There is a keycloak configuration for example
+    keycloak:
+      url: 'https://example-keycloak-service.domain/auth/'
+      realm: 'example-realm'
+      clientId: 'example-client-id'
+      clientSecretKey: 'example-client-secret-key'
+
+    postgres:
+      hostname: 'postgres.example.local'
+      port: '5432'
+      username: 'somePostgresUsername'
+      password: 'somePostgresPassword'
+      database: 'some-database-for-dafault'
+
+    redis:
+      hostname: 'redis.example.local'
+      port: '6379'
+      username: 'someRedisUsername'
+      password: 'someRedisPassword'
+      dbNumber: 5
+
+    # Extra files that can be mounted in containers
+    extraFiles: []
+    # - path: '/opt/a/'
+    #   files:
+    #     - name: 'test1'
+    #       content: |-
+    #         example content 1
+    #     - name: 'test2'
+    #       content: |-
+    #         example content 2
+    # - path: '/opt/b'
+    #   readOnly: true
+    #   files:
+    #     - name: 'test3'
+    #       content: |-
+    #         example content 3
+
+  # The resources allocated for each replica, both requests and limits.
   resources:
     requests:
+      memory: 200Mi
       cpu: 200m
-      memory: 500Mi
     limits:
+      memory: 200Mi
       cpu: 200m
-      memory: 500Mi
 
-  # Probes configuration
+  # Probes configuration.
   probes:
     enabled: true
     readiness:
@@ -167,7 +170,7 @@ main:
           # Port inside the container.
           internal: 8080
           # External service port.
-          external: 8080
+          external: 8000
 
   # Ingress configuration.
   ingress:
@@ -185,14 +188,14 @@ main:
           - path: /api/example
             pathType: ImplementationSpecific
             # Can be choose between "name" and "port"
-            # port: 80
+            # port: 8080
             name: http
       - host: external.example.com
         paths:
           - path: /api/example
             pathType: ImplementationSpecific
             # Can be choose between "name" and "port"
-            # port: 80
+            # port: 8080
             name: http
 
   # Route configuration.
@@ -236,34 +239,68 @@ main:
     # This is a mutually exclusive setting with "minAvailable".
     # maxUnavailable: ""
 
-  # Additional vars
+  # Additional environment variables
   extraEnvVarsCM: {}
 
-  # Additional secrets
+  # Additional secret environment variables
   extraEnvVarsSecret: {}
 
-  # NodeSelector configuration of the validators
+  # NodeSelector configuration of the validators.
   nodeSelector: {}
 
   # Deployment affinity configuration. If not set the default one will be used.
   affinity: {}
 
-  # Never co-located in the same node, can be soft or hard
-  podAntiAffinityPreset: 'soft'
+  # Never co-located in the same node, can be soft or hard.
+  podAntiAffinityPreset: soft
 
-  # Tolerations of the validators pods
+  # Tolerations of the validators pods.
   tolerations: []
 
-  # Annotations used in the service resources
+  # Annotations used in the service resources.
   annotations: {}
 
+# Specific configuration of application instances.
+# It overrides and/or complements "common" parameters above.
+instances:
+  # Main is a necessary component, it must be present.
+  main:
+    enabled: true
+    appConfig:
+      appName: 'ns-go'
+      # appCommand: ['/opt/ns-go/docker-entrypoint.sh', 'start']
+    service:
+      enabled: true
+    # There is specific keycloak configuration for example
+    # keycloak:
+    #   url: 'https://example-keycloak-service.domain/auth/'
+    #   realm: 'example-realm'
+    #   clientId: 'example-client-id'
+    #   clientSecretKey: 'example-client-secret-key'
+
+  celery:
+    enabled: true
+    appConfig:
+      appName: 'ns-go-celery'
+      # appCommand: ['/opt/ns-go/docker-entrypoint.sh', 'start']
+    service:
+      enabled: true
+    # There is specific keycloak configuration for example
+    # keycloak:
+    #   url: 'https://example-keycloak-service.domain/auth/'
+    #   realm: 'example-realm'
+    #   clientId: 'example-client-id'
+    #   clientSecretKey: 'example-client-secret-key'
+
 # Migrations to prepare an application to work, e.g. a database migration or creating resources in IAM.
+# It also overrides and/or complements "common" parameters above.
 migrations:
   enabled: false
 
-  # Application name for identification
-  appName: "ns-go-migrations"
-  appCommand: ["/opt/ns-go/docker-entrypoint.sh", "init"]
+  appConfig:
+    # Application name for identification
+    appName: "ns-go-migrations"
+    #appCommand: ["/opt/ns-go/docker-entrypoint.sh", "init"]
 
   # The resources allocated for each replica, both requests and limits
   resources:
@@ -291,15 +328,9 @@ migrations:
     helm.sh/hook: pre-install,pre-upgrade
     helm.sh/hook-weight: "1"
 
-  # POD Security Context
-  podSecurityContext: {}
-
   # Extra variables for ConfigMap or Secret resource.
   extraEnvVarsCM: {}
   extraEnvVarsSecret: {}
-
-# Annotations used in all application resources
-annotations: {}
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -308,10 +339,13 @@ serviceAccount:
   annotations: {}
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
-  name: ''
+  name: ""
 
-# Global Extra vars
+# Annotations used in all application resources.
+annotations: {}
+
+# Global extra environment variables
 globalExtraEnvVarsCM: {}
 
-# Global Extra secrets
+# Global extra secret environment variables
 globalExtraEnvVarsSecret: {}

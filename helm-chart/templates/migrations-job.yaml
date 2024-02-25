@@ -1,4 +1,5 @@
 {{- if .Values.migrations.enabled }}
+{{- $config := mergeOverwrite (deepCopy .Values.common) (deepCopy .Values.migrations) }}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -10,8 +11,8 @@ metadata:
   annotations:
     {{- include "ns-go.migrations.annotations" . | nindent 4 }}
 spec:
-  backoffLimit: {{ .Values.migrations.backoffLimit }}
-  activeDeadlineSeconds: {{ .Values.migrations.activeDeadlineSeconds }}
+  backoffLimit: {{ $config.backoffLimit }}
+  activeDeadlineSeconds: {{ $config.activeDeadlineSeconds }}
   template:
     metadata:
       labels:
@@ -23,18 +24,18 @@ spec:
         - name: {{ .Values.pullSecret }}
       {{- end }}
       securityContext:
-        {{- .Values.migrations.podSecurityContext | toYaml | nindent 8 }}
-      restartPolicy: {{ .Values.migrations.restartPolicy }}
+        {{- $config.podSecurityContext | toYaml | nindent 8 }}
+      restartPolicy: {{ $config.restartPolicy }}
       containers:
-        - name: "{{ .Values.migrations.appName }}"
+        - name: "{{ $config.appConfig.appName }}"
           image: "{{ .Values.image.registry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
-          {{- if .Values.migrations.appCommand }}
+          {{- if $config.appConfig.appCommand }}
           command:
-            {{- .Values.migrations.appCommand | toYaml | nindent 12 }}
+            {{- $config.appConfig.appCommand | toYaml | nindent 12 }}
           {{- end }}
           imagePullPolicy: {{ .Values.pullPolicy | quote }}
           resources:
-            {{- .Values.migrations.resources | toYaml | nindent 12 }}
+            {{- $config.resources | toYaml | nindent 12 }}
           envFrom:
             - configMapRef:
                 name: "{{ include "ns-go.fullname" . }}-migrations"
@@ -42,7 +43,7 @@ spec:
                 name: "{{ include "ns-go.fullname" . }}-migrations"
           volumeMounts:
             - name: logs
-              mountPath: {{ .Values.appConfig.log.dir | quote }}
+              mountPath: {{ $config.appConfig.log.dir | quote }}
       volumes:
         - name: logs
           emptyDir: {}

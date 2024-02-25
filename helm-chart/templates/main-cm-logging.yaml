@@ -1,18 +1,28 @@
-{{ if .Values.logging.enabled }}
+{{- if .Values.logging.enabled }}
+{{- range $name, $v := .Values.instances }}
+{{- if $v.enabled }}
+
+{{- $appConfig := dict }}
+{{- if $v.appConfig }}
+{{- $appConfig = mergeOverwrite (deepCopy $.Values.common.appConfig) (deepCopy $v.appConfig) }}
+{{- else }}
+{{- $appConfig = $.Values.common.appConfig }}
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: "{{ include "ns-go.fullname" . }}-logging"
+  name: "{{ include "ns-go.fullname" $ }}-{{ $name }}-logging"
   labels:
-    {{- include "ns-go.main.labels" . | nindent 4 }}
+    {{- include "ns-go.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
   annotations:
-    {{- include "ns-go.main.annotations" . | nindent 4 }}
+    {{- include "ns-go.common.annotations" $ | nindent 4 }}
 data:
-  {{- if .Values.logging.vector.enabled }}
+  {{- if $.Values.logging.vector.enabled }}
   vector.toml: |-
-  {{- if .Values.logging.vector.overrideConfig }}
-{{ tpl .Values.logging.vector.overrideConfig . | indent 4 }}
+  {{- if $.Values.logging.vector.overrideConfig }}
+{{ tpl $.Values.logging.vector.overrideConfig $ | indent 4 }}
   {{- else }}
   [sources.syslog]
   type = "syslog"
@@ -28,4 +38,6 @@ data:
   {{- end }}
   {{- end }}
 ...
-{{ end }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,39 +1,44 @@
-{{- if .Values.main.ingress.enabled -}}
-{{- $name := (default (include "ns-go.fullname" . ) .Values.main.service.nameOverride) -}}
-{{- if and .Values.main.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
-  {{- if not (hasKey .Values.main.ingress.annotations "kubernetes.io/ingress.class") }}
-  {{- $_ := set .Values.main.ingress.annotations "kubernetes.io/ingress.class" .Values.main.ingress.className}}
+{{- range $name, $v := .Values.instances }}
+{{- if $v.enabled }}
+{{- $config := mergeOverwrite (deepCopy $.Values.common) (deepCopy $v) }}
+{{- if $config.ingress.enabled -}}
+---
+{{- $ingressName := print (default (include "ns-go.fullname" $ ) $config.service.nameOverride) "-" ( $name ) -}}
+{{- if and $config.ingress.className (not (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey $config.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set $config.ingress.annotations "kubernetes.io/ingress.class" $config.ingress.className}}
   {{- end }}
 {{- end }}
-{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
 apiVersion: networking.k8s.io/v1
-{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- else if semverCompare ">=1.14-0" $.Capabilities.KubeVersion.GitVersion }}
 apiVersion: networking.k8s.io/v1beta1
 {{- else -}}
 apiVersion: extensions/v1beta1
 {{- end }}
 kind: Ingress
 metadata:
-  name: {{ $name | quote }}
+  name: {{ $ingressName | quote }}
   labels:
-    {{- include "ns-go.labels" . | nindent 4 }}
-    {{- include "quote.object" .Values.main.ingress.labels | indent 4}}
+    {{- include "ns-go.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+    {{- include "quote.object" $config.ingress.labels | indent 4}}
   annotations:
-    {{- include "ns-go.annotations" . | indent 4 }}
-    {{- include "quote.object" .Values.main.ingress.annotations | indent 4}}
+    {{- include "ns-go.annotations" $ | indent 4 }}
+    {{- include "quote.object" $config.ingress.annotations | indent 4}}
 spec:
-  {{- if and .Values.main.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
-  ingressClassName: {{ .Values.main.ingress.className }}
+  {{- if and $config.ingress.className (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ $config.ingress.className }}
   {{- end }}
-  {{- if .Values.main.ingress.tls }}
+  {{- if $config.ingress.tls }}
   tls:
-    {{- range .Values.main.ingress.tls }}
+    {{- range $config.ingress.tls }}
     - hosts: {{- include "quote.list" .hosts | indent 6 }}
-      secretName: {{ .secretName | default (include "sanitize" (cat $name "-ssl")) | quote }}
+      secretName: {{ .secretName | default (include "sanitize" (cat $ingressName "-ssl")) | quote }}
     {{- end }}
   {{- end }}
   rules:
-    {{- range .Values.main.ingress.rules }}
+    {{- range $config.ingress.rules }}
     - host: {{ .host | quote }}
       http:
         paths:
@@ -45,7 +50,7 @@ spec:
             backend:
               {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ $name | quote }}
+                name: {{ $ingressName | quote }}
                 port:
                   {{- with .port }}
                   number: {{ . }}
@@ -54,9 +59,12 @@ spec:
                   name: {{ . }}
                   {{- end }}
               {{- else }}
-                serviceName: {{ $name | quote }}
+                serviceName: {{ $ingressName | quote }}
                 servicePort: {{ .port }}
               {{- end }}
     {{- end }}
   {{- end }}
+...
+{{- end }}
+{{- end }}
 {{- end }}

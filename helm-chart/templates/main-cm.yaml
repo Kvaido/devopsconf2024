@@ -1,32 +1,46 @@
+{{- range $name, $v := .Values.instances }}
+{{- if $v.enabled }}
+
+{{- $appConfig := dict }}
+{{- if $v.appConfig }}
+{{- $appConfig = mergeOverwrite (deepCopy $.Values.common.appConfig) (deepCopy $v.appConfig) }}
+{{- else }}
+{{- $appConfig = $.Values.common.appConfig }}
+{{- end }}
+
+{{- $config := mergeOverwrite (deepCopy $.Values.common) (deepCopy $v) }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "ns-go.fullname" . | quote }}
+  name: "{{ include "ns-go.fullname" $ }}-{{ $name }}"
   labels:
-    {{- include "ns-go.main.labels" . | nindent 4 }}
+    {{- include "ns-go.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
   annotations:
-    {{- include "ns-go.main.annotations" . | nindent 4 }}
+    {{- include "ns-go.common.annotations" $ | nindent 4 }}
 data:
-  KEYCLOAK_SERVER_URL: {{ .Values.appConfig.keycloak.url | quote }}
-  KEYCLOAK_REALM_NAME: {{ .Values.appConfig.keycloak.realm | quote }}
-  LOG_DIR: {{ .Values.appConfig.log.dir | quote }}
-  LOG_FILENAME: {{ .Values.appConfig.log.fileName | quote }}
-  LOG_LEVEL: {{ .Values.appConfig.log.level | quote }}
-  LOG_FORMAT: {{ .Values.appConfig.log.format | quote }}
-  LOG_FILES_COUNT: {{ .Values.appConfig.log.filesCount | quote }}
-  LOG_FILE_SIZE: {{ .Values.appConfig.log.fileSize | quote }}
-  STAGE: {{ .Values.appConfig.stage | quote }}
-  POSTGRES_HOSTNAME: {{ .Values.appConfig.postgres.hostname | quote }}
-  POSTGRES_PORT: {{ .Values.appConfig.postgres.port | quote }}
-  POSTGRES_DB: {{ .Values.appConfig.postgres.database | quote }}
-  REDIS_HOSTNAME: {{ .Values.appConfig.redis.hostname | quote }}
-  REDIS_PORT: {{ .Values.appConfig.redis.port | quote }}
-  REDIS_DB: {{ .Values.appConfig.redis.dbNumber | quote }}
-  {{- with .Values.globalExtraEnvVarsCM }}
+  LOG_DIR: {{ $appConfig.log.dir | quote }}
+  LOG_FILENAME: {{ $appConfig.log.fileName | quote }}
+  LOG_LEVEL: {{ $appConfig.log.level | quote }}
+  LOG_FORMAT: {{ $appConfig.log.format | quote }}
+  LOG_FILES_COUNT: {{ $appConfig.log.filesCount | quote }}
+  LOG_FILE_SIZE: {{ $appConfig.log.fileSize | quote }}
+  STAGE: {{ $appConfig.stage | quote }}
+  KEYCLOAK_SERVER_URL: {{ $appConfig.keycloak.url | quote }}
+  KEYCLOAK_REALM_NAME: {{ $appConfig.keycloak.realm | quote }}
+  POSTGRES_HOSTNAME: {{ $appConfig.postgres.hostname | quote }}
+  POSTGRES_PORT: {{ $appConfig.postgres.port | quote }}
+  POSTGRES_DB: {{ $appConfig.postgres.database | quote }}
+  REDIS_HOSTNAME: {{ $appConfig.redis.hostname | quote }}
+  REDIS_PORT: {{ $appConfig.redis.port | quote }}
+  REDIS_DB: {{ $appConfig.redis.dbNumber | quote }}
+  {{- with $.Values.globalExtraEnvVarsCM }}
   {{- toYaml . | nindent 2 }}
   {{- end }}
-  {{- with .Values.main.extraEnvVarsCM }}
+  {{- with $config.extraEnvVarsCM }}
   {{- toYaml . | nindent 2 }}
   {{- end }}
 ...
+{{- end }}
+{{- end }}

@@ -1,0 +1,30 @@
+{{- range $name, $v := .Values.instances }}
+{{- if $v.enabled }}
+{{- $config := mergeOverwrite (deepCopy $.Values.common) (deepCopy $v) }}
+{{- if $config.service.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ print (default (include "ns-go.fullname" $) $config.service.nameOverride) "-" $name }}"
+  labels:
+    {{- include "ns-go.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+  annotations:
+    {{- include "ns-go.common.annotations" $ | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "ns-go.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+  ports:
+    {{- range $config.service.ports }}
+    - name: {{ .name }}
+      port: {{ .ports.external }}
+      targetPort: {{ .ports.internal }}
+      protocol: {{ .protocol }}
+    {{- end }}
+...
+{{- end }}
+{{- end }}
+{{- end }}
