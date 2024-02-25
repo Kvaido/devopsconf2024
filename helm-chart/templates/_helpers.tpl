@@ -2,7 +2,7 @@
 Expand the name of the chart.
 */}}
 {{- define "ns-go.name" -}}
-{{- default .Chart.Name .Values.main.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/* Sanitizes given string. */}}
@@ -24,10 +24,10 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 If release name contains chart name it will be used as a full name.
 */}}
 {{- define "ns-go.fullname" -}}
-{{- if .Values.main.fullnameOverride }}
-{{- .Values.main.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- $name := default .Chart.Name .Values.main.nameOverride }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
 {{- if contains $name .Release.Name }}
 {{- .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -76,12 +76,31 @@ Create the name of the service account to use.
 {{- end -}}
 {{- end }}
 
+{{/* Migrations annotations */}}
+{{- define "ns-go.migrations.annotations" -}}
+{{- include "ns-go.annotations" . }}
+{{- with .Values.migrations.annotations }}
+{{- include "quote.object" . }}
+{{- end }}
+{{- end }}
+
+{{/* Migrations config annotations */}}
+{{- define "ns-go.migrations.configAnnotations" -}}
+{{- include "ns-go.annotations" . }}
+{{- with .Values.migrations.configAnnotations }}
+{{- include "quote.object" . }}
+{{- end }}
+{{- end }}
+
+
 {{/*
 Annotations of checksums for configs and secrets of all pods.
 */}}
 {{- define "ns-go.checksumPodAnnotations" -}}
-checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+checksum/config: {{ include (print $.Template.BasePath "/main-cm.yaml") . | sha256sum }}
+checksum/secret: {{ include (print $.Template.BasePath "/main-secret.yaml") . | sha256sum }}
+checksum/config-logging: {{ include (print $.Template.BasePath "/main-cm-logging.yaml") . | sha256sum }}
+checksum/secret-logging: {{ include (print $.Template.BasePath "/main-secret-logging.yaml") . | sha256sum }}
 {{- end }}
 
 {{/*

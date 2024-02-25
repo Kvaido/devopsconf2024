@@ -1,0 +1,50 @@
+{{- if .Values.migrations.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ns-go.fullname" . }}-migrations
+  labels:
+    {{- include "ns-go.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrations
+  annotations:
+    {{- include "ns-go.migrations.annotations" . | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migrations.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "ns-go.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migrations
+    spec:
+      {{- if .Values.pullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.pullSecret }}
+      {{- end }}
+      securityContext:
+        {{- .Values.migrations.podSecurityContext | toYaml | nindent 8 }}
+      restartPolicy: {{ .Values.migrations.restartPolicy }}
+      containers:
+        - name: "{{ .Values.migrations.appName }}"
+          image: "{{ .Values.image.registry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          {{- if .Values.migrations.appCommand }}
+          command:
+            {{- .Values.migrations.appCommand | toYaml | nindent 12 }}
+          {{- end }}
+          imagePullPolicy: {{ .Values.pullPolicy | quote }}
+          resources:
+            {{- .Values.migrations.resources | toYaml | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: "{{ include "ns-go.fullname" . }}-migrations"
+            - secretRef:
+                name: "{{ include "ns-go.fullname" . }}-migrations"
+          volumeMounts:
+            - name: logs
+              mountPath: {{ .Values.appConfig.log.dir | quote }}
+      volumes:
+        - name: logs
+          emptyDir: {}
+...
+{{- end }}

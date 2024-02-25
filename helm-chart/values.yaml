@@ -1,18 +1,77 @@
+# Override full name of the service
+nameOverride: ""
+# Completely replaces the generated name
+fullnameOverride: ""
+
 # Image pull policy. Possible values: Always, Never, IfNotPresent.
 pullPolicy: IfNotPresent
 # Image pull secret name.
 pullSecret: ""
 
-# Docker image of the service
+# Application image
 image:
   registry: 'kvaido'
   name: 'hello-world'
   tag: '1.0.0'
 
+# Logging configuration
+logging:
+  enabled: true
+
+  # vector sidecar configuration
+  vector:
+    enabled: true
+    image:
+      registry: timberio
+      name: vector
+      tag: 0.31.0-alpine
+    dataDir: /var/lib/vector
+    version: 1
+    aggregator:
+      address: vector.example.com
+      port: 10521
+    resources:
+      requests:
+        cpu: 50m
+        memory: 50Mi
+      limits:
+        cpu: 50m
+        memory: 50Mi
+    tag: default
+    overrideConfig: |
+      [sources.syslog]
+      type = "syslog"
+      address = "0.0.0.0:80"
+      mode = "udp"
+
+      [sinks.my_sink_id]
+      type = "file"
+      inputs = [ "syslog" ]
+      path = "/var/lib/vector/%Y-%m-%d.log.json.zstd"
+      compression = "zstd"
+      encoding.codec = "json"
+
 # Configuration of application
 appConfig:
   # Stage name for identification, e.g. "dev" or "test".
-  stage: 'dev-demo'
+  stage: '<org_name>-<env_name>'
+
+  # Parameters for library
+  log:
+    dir: '/var/log/ns-go'
+    fileName: 'ns-go.log'
+    level: 'INFO'
+    format: 'JSON,CONSOLE'
+    filesCount: '10'
+    fileSize: '100'
+
+  # Insert additional configuration below and link it with configMaps, Secrets, etc as you need.
+  # There is keycloak configuration for example
+  keycloak:
+    url: 'https://example-keycloak-service.domain/auth/'
+    realm: 'example-realm'
+    clientId: 'example-client-id'
+    clientSecretKey: 'example-client-secret-key'
 
   postgres:
     hostname: 'postgres.example.local'
@@ -45,13 +104,12 @@ appConfig:
   #       content: |-
   #         example content 3
 
-# main configuration.
+# Main configuration. This is a necessary component, it must be present.
 main:
-  # Override full name of the service
-  nameOverride: "ns-go"
-  # Completely replaces the generated name
-  fullnameOverride: "ns-go"
-
+  # Application name for identification
+  appName: 'ns-go'
+  # Command that runs the application. Example: '[ "./docker-entrypoint.sh", "ns-go" ]'
+  appCommand: ''
   # Lifecycle hooks for the container. Example:
   # lifecycleHooks: |
   #   postStart:
@@ -62,32 +120,36 @@ main:
   #       command: [ "/bin/sh", "-c", "echo Stopping container > /dev/stdout" ]
   lifecycleHooks: ''
 
+  # The minimum number of replicas
+  replicas: 3
   # Strategy
   strategy: {}
+  # POD Security Context
+  podSecurityContext: {}
 
-  # The resources allocated for each replica, both requests and limits.
+  # The resources allocated for each replica, both requests and limits
   resources:
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-    limits:
-      cpu: 200m
-      memory: 512Mi
     requests:
       cpu: 200m
-      memory: 512Mi
+      memory: 500Mi
+    limits:
+      cpu: 200m
+      memory: 500Mi
 
-
-  # The minimum number of replicas.
-  replicas: 2
-
-  autoscaling:
-    enabled: false
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 80
-    # targetMemoryUtilizationPercentage: 80
+  # Probes configuration
+  probes:
+    enabled: true
+    readiness:
+      initialDelaySeconds: 10
+      httpGet:
+        port: http
+        path: "/api/v1/health"
+    liveness:
+      initialDelaySeconds: 10
+      httpGet:
+        port: http
+        path: "/api/v1/health"
+    startup: {}
 
   # Service configuration. Use for cluster migration.
   service:
@@ -107,21 +169,6 @@ main:
           # External service port.
           external: 8080
 
-  # Probes configuration.
-  probes:
-    enabled: true
-    readiness:
-      initialDelaySeconds: 10
-      httpGet:
-        port: http
-        path: "/api/v1/health"
-    liveness:
-      initialDelaySeconds: 10
-      httpGet:
-        port: http
-        path: "/api/v1/health"
-    startup: {}
-
   # Ingress configuration.
   ingress:
     enabled: false
@@ -130,36 +177,55 @@ main:
     className: nginx
     tls:
       - hosts:
-          - dev.example.com
+          - internal.example.com
+          - external.example.com
     rules:
-      - host: dev.example.com
+      - host: internal.example.com
         paths:
           - path: /api/example
             pathType: ImplementationSpecific
             # Can be choose between "name" and "port"
-            port: 8080
-            # name: api
+            # port: 80
+            name: http
+      - host: external.example.com
+        paths:
+          - path: /api/example
+            pathType: ImplementationSpecific
+            # Can be choose between "name" and "port"
+            # port: 80
+            name: http
 
+  # Route configuration.
   route:
-    # If `true`, an OpenShift Route is created
-    enabled: false
-    # Host name for the Route
-    host: ""
-    # Target port
-    targetPort: api
-    # TLS configuration
-    tls:
-      # Insecure edge termination policy of the Route. Can be `None`, `Redirect`, or `Allow`
-      insecureEdgeTerminationPolicy: Redirect
-      # TLS termination of the route. Can be `edge`, `passthrough`, or `reencrypt`
-      termination: edge
-      # Certificate in PEM format
-      certificate: ''
-      # Certificate private key in PEM format
-      key: ''
+    - name: "external"
+      # If `true`, an OpenShift Route is created
+      enabled: false
+      # Host name for the Route
+      host: "external.example.com"
+      # Target port
+      targetPort: http
+      # TLS configuration
+      tls:
+        # Insecure edge termination policy of the Route. Can be `None`, `Redirect`, or `Allow`
+        insecureEdgeTerminationPolicy: Redirect
+        # TLS termination of the route. Can be `edge`, `passthrough`, or `reencrypt`
+        termination: edge
+        # Certificate in PEM format
+        certificate: ''
+        # Certificate private key in PEM format
+        key: ''
+    - name: "internal"
+      # If `true`, an OpenShift Route is created
+      enabled: false
+      # Host name for the Route
+      host: "internal.example.com"
+      # Target port
+      targetPort: http
+      # TLS configuration
+      tls: {}
 
   podDisruptionBudget:
-    enabled: false
+    enabled: true
     # An eviction is allowed if at least "minAvailable" pods selected by "selector"
     # will still be available after the eviction, i.e. even in the absence of the evicted pod.
     # So for example you can prevent all voluntary evictions by specifying "100%".
@@ -170,26 +236,69 @@ main:
     # This is a mutually exclusive setting with "minAvailable".
     # maxUnavailable: ""
 
-  #Additional vars
+  # Additional vars
   extraEnvVarsCM: {}
+
+  # Additional secrets
   extraEnvVarsSecret: {}
 
-  # NodeSelector configuration of the validators.
+  # NodeSelector configuration of the validators
   nodeSelector: {}
 
   # Deployment affinity configuration. If not set the default one will be used.
   affinity: {}
 
-  # Never co-located in the same node, can be soft or hard.
-  podAntiAffinityPreset: soft
+  # Never co-located in the same node, can be soft or hard
+  podAntiAffinityPreset: 'soft'
 
-  # Tolerations of the validators pods.
+  # Tolerations of the validators pods
   tolerations: []
 
-  # Annotations used in the service resources.
+  # Annotations used in the service resources
   annotations: {}
 
-# Annotations used in all application resources.
+# Migrations to prepare an application to work, e.g. a database migration or creating resources in IAM.
+migrations:
+  enabled: false
+
+  # Application name for identification
+  appName: "ns-go-migrations"
+  appCommand: ["/opt/ns-go/docker-entrypoint.sh", "init"]
+
+  # The resources allocated for each replica, both requests and limits
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+  # The number of retries before marking this job failed.
+  backoffLimit: 1
+  # Restart policy for all containers within the pod. One of OnFailure, Never.
+  restartPolicy: Never
+  # The duration in seconds relative to the startTime that the job may be continuously active before the system tries to terminate it.
+  activeDeadlineSeconds: 600
+
+  # Annotations used in the ConfigMap and Secret resources.
+  configAnnotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+
+  # Annotations used in the general Job.
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "1"
+
+  # POD Security Context
+  podSecurityContext: {}
+
+  # Extra variables for ConfigMap or Secret resource.
+  extraEnvVarsCM: {}
+  extraEnvVarsSecret: {}
+
+# Annotations used in all application resources
 annotations: {}
 
 serviceAccount:
@@ -199,8 +308,10 @@ serviceAccount:
   annotations: {}
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
-  name: ""
+  name: ''
 
 # Global Extra vars
 globalExtraEnvVarsCM: {}
+
+# Global Extra secrets
 globalExtraEnvVarsSecret: {}

@@ -1,0 +1,31 @@
+{{ if .Values.logging.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ include "ns-go.fullname" . }}-logging"
+  labels:
+    {{- include "ns-go.main.labels" . | nindent 4 }}
+  annotations:
+    {{- include "ns-go.main.annotations" . | nindent 4 }}
+data:
+  {{- if .Values.logging.vector.enabled }}
+  vector.toml: |-
+  {{- if .Values.logging.vector.overrideConfig }}
+{{ tpl .Values.logging.vector.overrideConfig . | indent 4 }}
+  {{- else }}
+  [sources.syslog]
+  type = "syslog"
+  address = "0.0.0.0:80"
+  mode = "udp"
+
+  [sinks.my_sink_id]
+  type = "file"
+  inputs = [ "syslog" ]
+  path = "/var/lib/vector/%Y-%m-%d.log.json.zstd"
+  compression = "zstd"
+  encoding.codec = "json"
+  {{- end }}
+  {{- end }}
+...
+{{ end }}

@@ -12,7 +12,7 @@ metadata:
   annotations:
     {{- include "ns-go.main.annotations" . | nindent 4 }}
 spec:
-  type: {{ .Values.main.service.type | quote }}
+  type: ClusterIP
   selector:
     {{- include "ns-go.main.selectorLabels" . | nindent 4 }}
   ports:

@@ -1,0 +1,24 @@
+{{- if .Values.main.podDisruptionBudget.enabled }}
+---
+{{- if semverCompare ">=1.21-0" $.Capabilities.KubeVersion.GitVersion }}
+apiVersion: policy/v1
+{{- else -}}
+apiVersion: policy/v1beta1
+{{- end }}
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "ns-go.fullname" . | quote }}
+  labels:
+    {{- include "ns-go.labels" . | nindent 4 }}
+spec:
+  {{- with .Values.main.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+  {{- with .Values.main.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ns-go.main.selectorLabels" . | nindent 6 }}
+...
+{{- end }}

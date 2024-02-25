@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -11,9 +12,7 @@ spec:
   selector:
     matchLabels:
       {{- include "ns-go.main.selectorLabels" . | nindent 6 }}
-  {{- if not .Values.main.autoscaling.enabled }}
   replicas: {{ .Values.main.replicas }}
-  {{- end }}
   strategy: {{- toYaml .Values.main.strategy | nindent 4 }}
   template:
     metadata:
@@ -27,8 +26,14 @@ spec:
       imagePullSecrets:
         - name: {{ .Values.pullSecret }}
       {{- end }}
+      securityContext:
+        {{- toYaml .Values.main.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ include "ns-go.fullname" . | quote }}
+
+        - name: "{{ .Values.main.appName }}"
+          {{- if .Values.main.appCommand }}
+          command: {{ .Values.main.appCommand }}
+          {{- end }}
           {{- with .Values.main.lifecycleHooks }}
           lifecycle:
           {{- tpl . $ | nindent 12 }}
@@ -36,24 +41,11 @@ spec:
           image: "{{ .Values.image.registry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.pullPolicy | quote }}
           resources: {{- toYaml .Values.main.resources | nindent 12 }}
-          env:
-            - name: KUBE_NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-            - name: KUBE_POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: KUBE_POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
           envFrom:
             - configMapRef:
-                name: {{ include "ns-go.fullname" . | quote }}
+                name: "{{ include "ns-go.fullname" . }}"
             - secretRef:
-                name: {{ include "ns-go.fullname" . | quote }}
+                name: "{{ include "ns-go.fullname" . }}"
           ports:
           {{- range .Values.main.service.ports }}
             - name: {{ .name }}
@@ -61,6 +53,8 @@ spec:
               protocol: {{ .protocol }}
           {{- end }}
           volumeMounts:
+            - name: "{{ include "ns-go.fullname" . }}-logs"
+              mountPath: {{ .Values.appConfig.log.dir | quote }}
           {{- if .Values.appConfig.extraFiles }}
             {{- range .Values.appConfig.extraFiles }}
             - name: "{{ include "ns-go.fullname" $ }}-{{ .path | replace "/" "-" | replace "." "-" | trimAll "-" }}"
@@ -82,8 +76,42 @@ spec:
           {{- end }}
           {{- end }}
 
+        {{- if .Values.logging.enabled }}
+        {{- if .Values.logging.vector.enabled }}
+        - name: "vector"
+          image: "{{ .Values.logging.vector.image.registry }}/{{ .Values.logging.vector.image.name }}:{{ .Values.logging.vector.image.tag }}"
+          resources:
+            {{- toYaml .Values.logging.vector.resources | nindent 12 }}
+          volumeMounts:
+            - name: "{{ include "ns-go.fullname" . }}-logs"
+              mountPath: {{ .Values.appConfig.log.dir | quote }}
+            - name: "vector-data"
+              mountPath: {{ .Values.logging.vector.dataDir | quote }}
+            - name: "config-volume-vector"
+              mountPath: "/etc/vector/vector.toml"
+              subPath: vector.toml
+              readOnly: true
+        {{- end }}
+        {{- end }}
+
       volumes:
-      {{- if .Values.appConfig.extraFiles }}
+        - name: "{{ include "ns-go.fullname" . }}-logs"
+          emptyDir: {}
+
+        {{- if .Values.logging.enabled }}
+        {{- if .Values.logging.vector.enabled }}
+        - name: "vector-data"
+          emptyDir: {}
+        - name: "config-volume-vector"
+          configMap:
+            name: "{{ include "ns-go.fullname" . }}-logging"
+            items:
+              - key: vector.toml
+                path: vector.toml
+        {{- end }}
+        {{- end }}
+
+        {{- if .Values.appConfig.extraFiles }}
         {{- range .Values.appConfig.extraFiles }}
         {{- $extraFiles := . }}
         - name: "{{ include "ns-go.fullname" $ }}-{{ .path | replace "/" "-" | replace "." "-" | trimAll "-" }}"
@@ -95,7 +123,7 @@ spec:
                 path: "{{ .name }}"
             {{- end }}
         {{- end }}
-      {{- end }}
+        {{- end }}
 
       {{- if .Values.main.nodeSelector }}
       nodeSelector: {{ toYaml .Values.main.nodeSelector | nindent 8 }}
@@ -119,3 +147,4 @@ spec:
       {{- if .Values.main.tolerations }}
       tolerations: {{ toYaml .Values.main.tolerations | nindent 8 }}
       {{- end }}
+...
