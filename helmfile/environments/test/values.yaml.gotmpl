@@ -1,0 +1,127 @@
+image:
+  registry: 'kvaido'
+  name: 'hello-world'
+  tag: '1.0.0'
+
+logging:
+  enabled: true
+  {{- .Values.logging | toYaml | nindent 2 }}
+
+  # vector sidecar configuration
+  vector:
+    enabled: true
+    image:
+      registry: timberio
+      name: vector
+      tag: 0.31.0-alpine
+    dataDir: /var/lib/vector
+    version: 1
+    aggregator:
+      address: vector.example.com
+      port: 10521
+    resources:
+      requests:
+        cpu: 50m
+        memory: 50Mi
+      limits:
+        cpu: 50m
+        memory: 50Mi
+    probes:
+      enabled: false
+      readiness: {}
+      liveness: {}
+      startup: {}
+    tag: default
+    application: null
+    overrideConfig: |
+      [sources.syslog]
+      type = "syslog"
+      address = "0.0.0.0:80"
+      mode = "udp"
+
+      [sinks.my_sink_id]
+      type = "file"
+      inputs = [ "syslog" ]
+      path = "/var/lib/vector/%Y-%m-%d.log.json.zstd"
+      compression = "zstd"
+      encoding.codec = "json"
+
+common:
+  appConfig:
+    replicas: 2
+    appName: 'ns-go'
+
+    stage: '<org_name>-<env_name>'
+    log:
+      level: 'DEBUG'
+
+    keycloak:
+      url: 'https://{{ .Values.ingress.public.keycloak }}/auth/'
+      realm: 'example-realm'
+      clientId: 'example-client-id'
+      clientSecretKey: 'example-client-secret-key'
+
+    postgres:
+      hostname: {{ .Values.postgres.host }}
+      port: {{ .Values.postgres.port }}
+      username: 'somePostgresUsername'
+      password: 'somePostgresPassword'
+      database: 'some-database-for-test'
+
+    redis:
+      hostname: {{ .Values.redis.host }}
+      port: {{ .Values.redis.port }}
+      username: 'someRedisUsername'
+      password: 'someRedisPassword'
+      dbNumber: 5
+
+  resources:
+    requests:
+      memory: 200Mi
+      cpu: 200m
+    limits:
+      memory: 200Mi
+      cpu: 200m
+
+  probes:
+    enabled: true
+    readiness:
+      initialDelaySeconds: 10
+      httpGet:
+        port: http
+        path: "/api/v1/health"
+    liveness:
+      initialDelaySeconds: 10
+      httpGet:
+        port: http
+        path: "/api/v1/health"
+    startup: {}
+
+  service:
+    enabled: true
+
+  ingress:
+    enabled: false
+
+  podDisruptionBudget:
+    enabled: true
+
+instances:
+  main:
+    enabled: true
+    appConfig:
+      appName: 'ns-go'
+      replicas: 3
+    service:
+      enabled: true
+
+  celery:
+    enabled: true
+    appConfig:
+      appName: 'ns-go-celery'
+      replicas: 2
+    service:
+      enabled: true
+
+migrations:
+  enabled: false

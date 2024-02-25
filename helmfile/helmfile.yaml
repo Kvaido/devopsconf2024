@@ -1,0 +1,29 @@
+environments:
+  dev:
+    values:
+      - environments/dev/common.yaml
+      - environments/dev/versions.yaml
+      - namespace: develop
+      - kubeContext: yc-demo
+
+  test:
+    values:
+      - environments/test/common.yaml
+      - environments/test/versions.yaml
+      - namespace: test
+      - kubeContext: yc-demo
+
+helmDefaults:
+  historyMax: 10
+  createNamespace: false
+  args:
+    - --insecure-skip-tls-verify
+
+releases:
+  - name: "{{ .Environment.Name }}-ns-go"
+    namespace: "{{ .Values.namespace }}"
+    kubeContext: "{{ .Values.kubeContext }}"
+    chart: ../helm-chart
+    missingFileHandler: Warn
+    values:
+      - environments/{{ $.Environment.Name }}/values.yaml.gotmpl

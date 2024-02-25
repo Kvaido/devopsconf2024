@@ -99,20 +99,6 @@ common:
       clientId: 'example-client-id'
       clientSecretKey: 'example-client-secret-key'
 
-    postgres:
-      hostname: 'postgres.example.local'
-      port: '5432'
-      username: 'somePostgresUsername'
-      password: 'somePostgresPassword'
-      database: 'some-database-for-dafault'
-
-    redis:
-      hostname: 'redis.example.local'
-      port: '6379'
-      username: 'someRedisUsername'
-      password: 'someRedisPassword'
-      dbNumber: 5
-
     # Extra files that can be mounted in containers
     extraFiles: []
     # - path: '/opt/a/'
