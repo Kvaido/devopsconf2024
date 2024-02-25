@@ -44,18 +44,18 @@ logging:
       startup: {}
     tag: default
     application: null
-    overrideConfig: |
-      [sources.syslog]
-      type = "syslog"
-      address = "0.0.0.0:80"
-      mode = "udp"
+    overrideConfig: {}
+      # [sources.syslog]
+      # type = "syslog"
+      # address = "0.0.0.0:80"
+      # mode = "udp"
 
-      [sinks.my_sink_id]
-      type = "file"
-      inputs = [ "syslog" ]
-      path = "/var/lib/vector/%Y-%m-%d.log.json.zstd"
-      compression = "zstd"
-      encoding.codec = "json"
+      # [sinks.my_sink_id]
+      # type = "file"
+      # inputs = [ "syslog" ]
+      # path = "/var/lib/vector/%Y-%m-%d.log.json.zstd"
+      # compression = "zstd"
+      # encoding.codec = "json"
 
 common:
   # Strategy
@@ -65,7 +65,7 @@ common:
 
   appConfig:
     # The minimum number of replicas.
-    replicas: 4
+    replicas: 2
     # Application name for identification
     appName: 'ns-go'
     # Command that runs the application. Example: ['./docker-entrypoint.sh', 'day2-core']
@@ -98,6 +98,20 @@ common:
       realm: 'example-realm'
       clientId: 'example-client-id'
       clientSecretKey: 'example-client-secret-key'
+
+    postgres:
+      hostname: 'test-pg-cluster.example.local'
+      port: '5432'
+      username: 'somePostgresUsername'
+      password: 'somePostgresPassword'
+      database: 'some-database-for-test'
+
+    redis:
+      hostname: 'test-redis-cluster.example.local'
+      port: '6379'
+      username: 'someRedisUsername'
+      password: 'someRedisPassword'
+      dbNumber: 5
 
     # Extra files that can be mounted in containers
     extraFiles: []
