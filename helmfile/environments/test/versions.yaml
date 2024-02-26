@@ -1,5 +1,0 @@
-# Version of the portal that is specified in the tags of ruby services.
-cloudVersion: '0.1'
-
-versions:
-  ns-go: 'dummy00-1'
