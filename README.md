@@ -19,7 +19,7 @@ https://helm.sh
 
 Plugin - https://github.com/salesforce/helm-starter
 
-Стартеры - 
+Стартеры - https://github.com/hilbertteam/dc24-helm-starters
 
 ```shell
 helm create NAME --starter /path/to/catalog/helm-starter-chart/standard
